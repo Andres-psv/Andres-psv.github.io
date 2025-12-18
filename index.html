@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calculadora Científica 2x2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema 2x2</h1>
+        
+        <div class="variable-selection-container">
+            <span class="var-label">Variables:</span>
+            <div class="var-box"><input type="text" id="var1" value="x" maxlength="1"></div>
+            <div class="var-box"><input type="text" id="var2" value="y" maxlength="1"></div>
+        </div>
+
+        <div class="equation-group">
+            <div class="input-container">
+                <div class="dynamic-wrapper">
+                    <input type="text" id="eq1" placeholder="Ecuación 1" oninput="syncEqual(this)">
+                    <span class="measure-span"></span>
+                    <span class="floating-equal">= 0</span>
+                </div>
+            </div>
+            <div class="input-container">
+                <div class="dynamic-wrapper">
+                    <input type="text" id="eq2" placeholder="Ecuación 2" oninput="syncEqual(this)">
+                    <span class="measure-span"></span>
+                    <span class="floating-equal">= 0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button onclick="insert('sin()')">sin</button>
+            <button onclick="insert('cos()')">cos</button>
+            <button onclick="insert('tan()')">tan</button>
+            <button onclick="insert('e^()')">e^</button>
+            <button onclick="insert('^()')">a^</button>
+            <button onclick="insert('sin^-1()')">sin⁻¹</button>
+            <button onclick="insert('cos^-1()')">cos⁻¹</button>
+            <button onclick="insert('tan^-1()')">tan⁻¹</button>
+            <button onclick="insert('log( , )')">log<sub>a</sub>b</button>
+            <button onclick="insert('ln()')">ln</button>
+            <button onclick="insert('π')">π</button>
+            <button onclick="insert('e')">e</button>
+            <button onclick="insert('√()')">√</button>
+            <button onclick="insert('()')">( )</button>
+            <button onclick="limpiar()" style="color: #e74c3c; font-weight: bold;">C</button>
+        </div>
+
+        <button id="btn-resolver" class="solve-btn">Calcular Solución Exacta</button>
+
+        <div id="resultado" class="result-box">Esperando ecuaciones...</div>
+
+        <div class="footer">
+            Creado por Andrés Alejandro y Gemini
+        </div>
+
+    </div>
+
+    <script>
+        let focusInput = document.getElementById('eq1');
+        document.querySelectorAll('input[type="text"]').forEach(i => {
+            i.onfocus = () => { if(i.id.includes('eq')) focusInput = i; };
+        });
+
+        function syncEqual(input) {
+            const wrapper = input.parentElement;
+            const measure = wrapper.querySelector('.measure-span');
+            const equal = wrapper.querySelector('.floating-equal');
+            measure.textContent = input.value || input.placeholder;
+            const width = measure.offsetWidth;
+            equal.style.left = (width + 12) + "px";
+        }
+
+        function insert(val) {
+            const start = focusInput.selectionStart;
+            const text = focusInput.value;
+            focusInput.value = text.substring(0, start) + val + text.substring(focusInput.selectionEnd);
+            const offset = val.includes('()') ? val.length - 1 : val.length;
+            focusInput.setSelectionRange(start + offset, start + offset);
+            syncEqual(focusInput);
+            focusInput.focus();
+        }
+
+        function limpiar() {
+            document.getElementById('eq1').value = '';
+            document.getElementById('eq2').value = '';
+            document.getElementById('resultado').innerHTML = "Esperando ecuaciones...";
+            document.querySelectorAll('.var-box').forEach(b => b.classList.remove('error-field'));
+            syncEqual(document.getElementById('eq1'));
+            syncEqual(document.getElementById('eq2'));
+        }
+
+        document.getElementById('btn-resolver').onclick = async () => {
+            const resBox = document.getElementById('resultado');
+            resBox.innerHTML = "<i>Procesando...</i>";
+            document.querySelectorAll('.var-box').forEach(b => b.classList.remove('error-field'));
+
+            try {
+                const response = await fetch('/resolver', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        var1: document.getElementById('var1').value,
+                        var2: document.getElementById('var2').value,
+                        eq1: document.getElementById('eq1').value,
+                        eq2: document.getElementById('eq2').value
+                    })
+                });
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    resBox.innerHTML = `<b>${data.soluciones[0][0]}</b><br><br><b>${data.soluciones[0][1]}</b>`;
+                } else {
+                    resBox.innerHTML = `<strong style="color: #d35400;">${data.message}</strong>`;
+                    if(data.status === 'var_error') {
+                        document.querySelectorAll('.var-box').forEach(b => b.classList.add('error-field'));
+                    }
+                }
+            } catch (e) {
+                resBox.innerText = "Error de conexión.";
+            }
+        };
+
+        window.onload = () => { 
+            syncEqual(document.getElementById('eq1')); 
+            syncEqual(document.getElementById('eq2')); 
+        };
+    </script>
+</body>
+</html>
